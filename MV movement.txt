@@ -1,0 +1,39 @@
+-----------------------
+- When AV moves down > the LA should fill by 5mL?
+How can this account for 70% of the LSVS?
+
+- Should the beginning of the cycle start with MV open and passive LA or active LA? 
+
+
+
+
+--------- 0d model ----------
+- Does the compliance mean the contraction of the ventricles? check filling time in charlie's example - looks counter-intuitive
+- How should I calculate the pressure in the MV when the MV is closed?
+- The pressure for the ventricle should be what?
+- Should use pressure or flow to open/close the MV?
+- Is capacitance (ml*s/mmHg) the same as compliance(ml/mmHg)? it seems to have different units -- compliance (acumulates mass) is for physiological circuits 
+
+
+-------- AV movement --------
+
+> the extension is 3.35 cm tall
+> the average velocity of the AV plane movement is 10 cm/s according to Maksuti/piston paper
+
+1- move the MV sideset downwards by 1.6 cm
+
+2- move circle inside the MV extension
+LSVS= 100-110ml *0.68 ~ 68ml during ventricular systole 
+>> this stroke volume should be calculated using a 0d model
+
+
+2.5cm in the z direction >> 1.6 cm
+2.76cm in radius
+
+pi*2.5^2*z = 59.8 cm^3=59.8ml
+
+pi*1.6^2*z = 59.8 cm^3=38.2ml
+
+
+------------------------------------------------
+images taken during atrial diastole ~5mmHg?

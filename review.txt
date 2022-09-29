@@ -1,0 +1,25 @@
+UPSTREAM ----------------------------------
+
+Skagseth 2009 - Pulmonary Vein Flow Pattern in Man During Thoracotomy
+- Has PV flow and LA pressure
+
+Scaling data to match 5 l/min
+
+> data2
+
+DOWNSTREAM ------------------------------
+
+Leo Fluid Dynamic Assessment of Three Polymeric Heart Valves Using Particle Image Velocimetry
+- Aortic pressure data
+
+Yellin Peskin 1981 - Mechanisms of mitral valve motion during diastole 
+ - Has flow and pressure data for doghearts
+
+Peskin 1982 - THE FLUID DYNAMICS OF  HEART VALVES:EXPERIMENTAL, THEORETICAL, AND COMPUTATIONAL METHODS 
+- Has a review for left hearts and a simplified schematic of data from doghearts. No magnitude in the plots.
+
+Prisco 2016-Impact of LVAD Implantation Site on Ventricular Blood Stagnation
+- Has mitral valve flow
+
+peskin (waveform)+Prisco (magnitude) = data for mitral valve flow
+peskin (waveform) + Leo (magnitude) = data for aortic valve flow 

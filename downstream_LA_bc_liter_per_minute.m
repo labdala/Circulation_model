@@ -41,6 +41,7 @@ contraction_duration = period - filling_time; % duration of contractile part of 
 tauS = 0.1*period;          % the smaller, the smaller the derivative in the decay. meaning more curved
 tauD =  0.445*period;        % the smaller, the smaller the derivative in the growth curve. meaning more curved
 stroke_volume=0;
+
 %% Initialization
 subplot(2,3,2)
 load("mv_flow_prisco")   
@@ -60,10 +61,13 @@ d_Q_mv=[qq1_MV1 qq1_MV2 qq1_MV3];
 d_Q_av=zeros(size(d_Q_mv));
 d_Q_ao=zeros(size(d_Q_mv));
 
+d_Q_mv = d_Q_mv *0.06;
 plot(t, d_Q_mv);
 xlabel("time (s)")
-ylabel("flux MV (ml/s)")
+ylabel("flux MV (L/min)")
 title("Input data - flux MV")
+
+d_Q_mv = d_Q_mv /0.06;
 
 % AV diode
 d_R_av = zeros(n_points,1);
@@ -95,6 +99,10 @@ vol_lv(1) = d_C_lv(1) * d_P_lv(1);
 
 %d_C_lv=10*d_C_lv;
 
+tdiff = zeros(187,1);
+pdiff = zeros(187,1);
+
+count=0;
 %% Calculate P_mv and P_lv
 for(i=2:n_points) %n_points
     % LV capacitance
@@ -127,6 +135,9 @@ for(i=2:n_points) %n_points
     % Update Q_av
     if(av_shut==0)
         d_Q_av(i-1) = (d_P_lv(i-1)-d_P_ao(i-1))/d_R_av(i-1);
+        count = count+1;
+        tdiff(i) = i*dt;
+        pdiff(i) =d_P_lv(i-1)- d_P_ao(i-1);
     elseif(av_shut==1)
         d_Q_av(i-1) = 0;
     end
@@ -136,7 +147,11 @@ for(i=2:n_points) %n_points
 
     vol_lv(i) = vol_lv(i-1) + dt * (d_Q_mv(i-1)-d_Q_av(i-1));
 %     d_Q_ao(i) = d_Q_av(i) + d_C_ao * (d_P_ao(i) - d_P_ao(i-1))/dt;
- end
+end
+
+for i=1:length(d_Q_av)-1
+    stroke_volume = stroke_volume + dt * (d_Q_av(i+1)+d_Q_av(i))/2;
+end
 
 
 %% Plots pressure, LV capacitance, Diode state
@@ -165,31 +180,48 @@ ylabel("R_{av} (mmHg*s/mL)");
 xlabel("time(s)");
 title("Resistance / Diode aortic valve")
 
+
+d_Q_ao = d_P_ao./d_R_ao;
+d_Q_ao = d_Q_ao *0.06;
+d_Q_av = d_Q_av *0.06;
+d_Q_mv = d_Q_mv *0.06;
+
 subplot(2,3,6)
-%plot(t, d_Q_av, 'o');
 hold on;
-plot(t, d_P_ao./d_R_ao);
+plot(t, d_Q_ao);
 plot(t,d_Q_av);
 plot(t, d_Q_mv);
-ylabel("Q (mL/s)");
+ylabel("Q (L/min)");
 xlabel("time(s)");
 legend("Q_{ao}", "Q_{av}", "Q_{mv}")
 title("Flux out of LV into Aorta")
 
 figure()
-subplot(1,2,1)
+subplot(2,2,1)
 plot(vol_lv,d_P_lv);
 ylabel("P(mmHg)");
 xlabel("V(mL)");
 title("PV loop for the left ventricle")
 
-subplot(1,2,2)
+subplot(2,2,2)
 plot(t,d_P_lv);
 hold on;
 plot(t,vol_lv);
 legend("P_{lv}", "V_{lv}")
 xlabel("t(s)");
 title("Time vs Pressure")
+
+
+subplot(2,2,3)
+plot(tdiff,pdiff);
+ylabel("mmHg");
+xlabel("t(s)");
+title("P_{LV} - P_{Ao}")
+
+stroke_volume
+
+cardiac_output = (stroke_volume/1000) /(period/60) %L/min
+
 % figure
 % t_wiggers=wiggers_lv_pressure(:,1);
 % d_C_lv_wiggers = zeros(1,64);

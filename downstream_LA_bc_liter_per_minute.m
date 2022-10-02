@@ -2,6 +2,10 @@ clear all;
 clc;
 close all;
 
+load('murgo_flow_ao_ml_sec.mat')
+load('murgo_pressure_Ao.mat')
+load('murgo_pressure_LV.mat')
+
 %% Pressure data
 subplot(2,3,1)
 which_P = "mmhg_wiggers";   
@@ -28,18 +32,20 @@ av_shut = 1;                            % initial AV diode state
 time_delay=0.1;                         % Delay to get the ventricle start contracting (s)
 dt=period/n_points;                     % time step
 which_C_lv = "charlie";                 % which capacitance for left ventricle - constant, charlie
-R_av_reference = 0.015;%0.04;       0.04%           % Resistance open AV - based on Moyer thesis
+R_av_reference = 0.004;%0.04;       0.04%           % Resistance open AV - based on Moyer thesis
 R_av_closed = 1e+10;                    % Resistance to represent closed diode    
-d_R_ao=0.8; %0.8%
-P_ao_initial=116;%81.8;
-P_lv_initial=6.6%3.67;
-d_C_ao =2.5% 2.8;%1.47;
-Clv_min = 7.5 * 0.006753*10;%*1333.22; %ml/mmHg
-Clv_max = 0.4 * 0.039*1333.22;% 0.65 * 0.039*1333.22;    % ml/mmHg
-filling_time = 0.66*period;   %  time it takes to fill the LV (s) ??? 
+d_R_ao=0.9; %0.8%
+P_ao_initial=77; %81.8;
+P_lv_initial=8.5; %3.67;
+d_C_ao =2; % 2.8;%1.47;
+Clv_min =3 %1.35;%*1333.22; %ml/mmHg
+Clv_max =46; %0.53 * 0.039*1333.22;% 0.65 * 0.039*1333.22;    % ml/mmHg
+filling_time = 0.6*period;   %  time it takes to fill the LV (s) ??? 
 contraction_duration = period - filling_time; % duration of contractile part of the LV
-tauS = 0.1*period;          % the smaller, the smaller the derivative in the decay. meaning more curved
-tauD =  0.445*period;        % the smaller, the smaller the derivative in the growth curve. meaning more curved
+tauS = 0.09*period;          % the smaller, the smaller the derivative in the decay. meaning more curved
+                             % it also controls how steep P_ao and P_lv the curves going up in systole are 
+tauD = 0.1*period;           % the smaller, the smaller the derivative in the growth curve. meaning more curved
+                             % it also controls how steep P_ao and P_lv the curves going down in systole are 
 stroke_volume=0;
 
 %% Initialization
@@ -88,7 +94,7 @@ d_C_lv=zeros(n_points,1);
 
 if(which_C_lv=="charlie")
     Clv_function2 = @(t) Clv_function_Charlie(t, tauS, tauD, contraction_duration, Clv_max, Clv_min, period); %0.005*Clv_max, 0.3*Clv_min
-    d_C_lv(1) = Clv_function2(mod(t(1)-time_delay,period)); 
+    d_C_lv(1) = 13;%Clv_function2(mod(t(1)-time_delay,period)); 
 elseif(which_C_lv=="constant")
     d_C_lv(1) = Clv_max; 
 end
@@ -159,10 +165,12 @@ subplot(2,3,3)
 plot(t, d_P_lv, '-r');
 hold on;
 plot(t, d_P_ao, '-g');
+plot(murgo_pressure_Ao(:,1)-0.29, murgo_pressure_Ao(:,2))
+plot(murgo_pressure_LV(:,1)-0.29, murgo_pressure_LV(:,2))
 hold off;
 xlabel("time(s)");
 ylabel("Pressure (mmHg)")
-legend("P_{lv}", "P_{ao}")
+legend("P_{lv}", "P_{ao}", "P_{ao, murgo}", "P_{lv,murgo}")
 title("Pressure Left Ventricle and Aorta")
 
 subplot(2,3,4)
@@ -191,9 +199,10 @@ hold on;
 plot(t, d_Q_ao);
 plot(t,d_Q_av);
 plot(t, d_Q_mv);
+plot(murgo_flow_ao_ml_sec(:,1)-0.29,murgo_flow_ao_ml_sec(:,2) * 0.06)
 ylabel("Q (L/min)");
 xlabel("time(s)");
-legend("Q_{ao}", "Q_{av}", "Q_{mv}")
+legend("Q_{ao}", "Q_{av}", "Q_{mv}", "Q_{ao}_{murgo}")
 title("Flux out of LV into Aorta")
 
 figure()

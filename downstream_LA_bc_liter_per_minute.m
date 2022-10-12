@@ -8,22 +8,22 @@ load('murgo_pressure_LV.mat')
 
 %% Parameters
 
-ncycles = 1;
+ncycles = 1;%10;
 cycle = 1;                                  % initialize the variable that tracks in which cycle we are
 period = 0.8;                               % cardiac cycle period (s)
 n_points= ncycles * 1000;
 av_shut = 1;                                % initial AV diode state
 time_delay = 0.1;                           % Delay to get the ventricle start contracting (s)
 dt = period/n_points;                       % time step
-which_C_lv = "charlie";                     % which capacitance for left ventricle - constant, charlie
+which_C_lv = "charlie"; %                     % which capacitance for left ventricle - constant, charlie
 R_av_reference = 0.004;                     % Resistance open AV - based on Moyer thesis should be 0.04
 R_av_closed = 1e+10;                    % Resistance to represent closed diode    
 d_R_ao=0.9; %0.8%
 P_ao_initial = 77; %81.8;
 P_lv_initial = 8.5; %3.67;
 d_C_ao = 2; % 2.8;%1.47;
-Clv_min = 3; %1.35;%*1333.22; %ml/mmHg
-Clv_max = 46; %0.53 * 0.039*1333.22;% 0.65 * 0.039*1333.22;    % ml/mmHg
+Clv_min = 5; %1.35;%*1333.22; %ml/mmHg
+Clv_max = 70; %0.53 * 0.039*1333.22;% 0.65 * 0.039*1333.22;    % ml/mmHg
 filling_time = 0.6*period;   %  time it takes to fill the LV (s) ??? 
 contraction_duration = period - filling_time; % duration of contractile part of the LV
 tauS = 0.09*period;          % the smaller, the smaller the derivative in the decay. meaning more curved
@@ -46,12 +46,14 @@ qq1_MV1 = interp1(t_MV1,q_MV1,xq1);
 qq1_MV2= 0*xq2;
 qq1_MV3 = interp1(t_MV3,q_MV3,xq3);
 qq1_MV3(375)=qq1_MV1(1);
-t=[xq1 xq2 xq3];
-d_Q_mv=[qq1_MV1 qq1_MV2 qq1_MV3];
+t0=[xq1 xq2 xq3];
+d_Q_mv0=[qq1_MV1 qq1_MV2 qq1_MV3];
 
+t=t0;
+d_Q_mv = d_Q_mv0;
 for i = 1 : ncycles-1
-    t = cat(2, t, t + period * i);
-    d_Q_mv = cat(2, d_Q_mv, d_Q_mv); 
+    t = cat(2, t, t0 + period * i);
+    d_Q_mv = cat(2, d_Q_mv, d_Q_mv0); 
 end
 
 d_Q_av=zeros(size(d_Q_mv));
@@ -84,9 +86,26 @@ d_C_lv=zeros(n_points,1);
 
 if(which_C_lv=="charlie")
     Clv_function2 = @(t) Clv_function_Charlie(t, tauS, tauD, contraction_duration, Clv_max, Clv_min, period); %0.005*Clv_max, 0.3*Clv_min
+    Clv_function2_prime = @(t) Clv_function_Charlie_prime(t, tauS, tauD, contraction_duration, Clv_max, Clv_min, period); %0.005*Clv_max, 0.3*Clv_min
     d_C_lv(1) = 13;%Clv_function2(mod(t(1)-time_delay,period)); 
 elseif(which_C_lv=="constant")
     d_C_lv(1) = Clv_max; 
+elseif(which_C_lv=="mette")
+    V0 = 10 /1000; % L
+    T_lv_max = 0.4*period;
+    E_lv_max = 60;%6 *1000; % mmHg / L
+    E_lv_min = 10;%0.049 * 1000; % mmHg / L
+    th = period;
+    kappa0 = 0.29;
+    kappa1 = 0.2;
+    tce = kappa0 + kappa1 * th;
+    Elv_function = @(t) Elv_function_Mette(t, tce, th, E_lv_min, E_lv_max);
+elseif(which_C_lv=="gaussian")
+    a = 7;
+    b = 0.1;
+    c = tauS;
+    E_lv_base = 0;%0.25 * 1000;
+    Elv_function = @(t) Elv_function_gaussian(t, a , b, c,E_lv_base );
 end
 
 % Initialize volume
@@ -115,6 +134,20 @@ for i=2:n_points %n_points
     elseif(which_C_lv=="constant")
         d_C_lv(i-1) = Clv_max;
         d_C_lv(i) = Clv_max;
+    elseif(which_C_lv=="mette")
+        tmod = mod(t(i) , period);
+        tmod_past = mod(t(i) - dt, period);
+        Clv_current = Elv_function(tmod);
+        Clv_past = Elv_function(tmod_past);
+        d_C_lv(i-1) = Clv_past;
+        d_C_lv(i) = Clv_current;
+    elseif(which_C_lv=="gaussian")
+        tmod = mod(t(i) , period);
+        tmod_past = mod(t(i) - dt, period);
+        Clv_current = Elv_function(tmod);
+        Clv_past = Elv_function(tmod_past);
+        d_C_lv(i-1) = Clv_past;
+        d_C_lv(i) = Clv_current;
     end
 
    if(d_Q_mv(i)==0) 
@@ -122,13 +155,13 @@ for i=2:n_points %n_points
    end
 
    if(d_P_lv(i-1) < d_P_ao(i-1)) 
-       fprintf("i= %i, time= %f, P_LV=%f, P_AO=%f, R_av=%f, Closing AV\n", i, t(i), d_P_lv(i-1), d_P_ao(i-1),d_R_av(i));
+       %fprintf("i= %i, time= %f, P_LV=%f, P_AO=%f, R_av=%f, Closing AV\n", i, t(i), d_P_lv(i-1), d_P_ao(i-1),d_R_av(i));
        av_shut=1;
        d_R_av(i) = R_av_closed;
    else
       av_shut=0;
        d_R_av(i) = R_av_reference;
-       fprintf("i= %i, time= %f, P_LV=%f, P_AO=%f, R_av=%f, Opening AV\n", i, t(i), d_P_lv(i-1), d_P_ao(i-1),d_R_av(i));
+       %fprintf("i= %i, time= %f, P_LV=%f, P_AO=%f, R_av=%f, Opening AV\n", i, t(i), d_P_lv(i-1), d_P_ao(i-1),d_R_av(i));
    end
 
     % Update Q_av
@@ -164,17 +197,17 @@ d_Q_mv = d_Q_mv *0.06;
 %% Pressure data
 subplot(2,3,1)
 which_P = "mmhg_wiggers";   
-[t, pp1_MV,pp1_LV,pp1_AO] = interpolation_pressure(which_P);
+[tt, pp1_MV,pp1_LV,pp1_AO] = interpolation_pressure(which_P);
 load("wiggers_la_pressure.csv")
 load("wiggers_ao_pressure.csv")
 load("wiggers_lv_pressure.csv")
 plot(wiggers_la_pressure(:,1),wiggers_la_pressure(:,2), 'ro')
 hold on;
-plot(t, pp1_MV, 'r-')
+plot(tt, pp1_MV, 'r-')
 plot(wiggers_ao_pressure(:,1),wiggers_ao_pressure(:,2), 'go')
-plot(t, pp1_AO, 'g-')
+plot(tt, pp1_AO, 'g-')
 plot(wiggers_lv_pressure(:,1),wiggers_lv_pressure(:,2), 'bo')
-plot(t, pp1_LV, 'b-')
+plot(tt, pp1_LV, 'b-')
 ylabel("P(mmHg)")
 legend("LA", "LA interp","AO", "AO interp","LV", "LV interp")
 title("Wiggers diagram")
@@ -182,14 +215,16 @@ title("Wiggers diagram")
 % MITRAL VALVE FLOW - PRISCO DATA
 subplot(2,3,2)
 plot(t, d_Q_mv);
+xlabel("time(s)");
+ylabel("Input flow MV (L/min)")
 
 % PRESSURE PLOTS
 subplot(2,3,3)
 plot(t, d_P_lv, '-r');
 hold on;
 plot(t, d_P_ao, '-g');
-plot(murgo_pressure_Ao(:,1)-0.29, murgo_pressure_Ao(:,2))
-plot(murgo_pressure_LV(:,1)-0.29, murgo_pressure_LV(:,2))
+%plot(murgo_pressure_Ao(:,1)-0.29, murgo_pressure_Ao(:,2))
+%plot(murgo_pressure_LV(:,1)-0.29, murgo_pressure_LV(:,2))
 hold off;
 xlabel("time(s)");
 ylabel("Pressure (mmHg)")
@@ -220,7 +255,7 @@ hold on;
 plot(t, d_Q_ao);
 plot(t,d_Q_av);
 plot(t, d_Q_mv);
-plot(murgo_flow_ao_ml_sec(:,1)-0.29,murgo_flow_ao_ml_sec(:,2) * 0.06)
+%plot(murgo_flow_ao_ml_sec(:,1)-0.29,murgo_flow_ao_ml_sec(:,2) * 0.06)
 ylabel("Q (L/min)");
 xlabel("time(s)");
 legend("Q_{ao}", "Q_{av}", "Q_{mv}", "Q_{ao}_{murgo}")
@@ -260,5 +295,8 @@ cardiac_output = (stroke_volume/1000) /(period/60) %L/min
 
 
 %%
-% figure
-% plot([t t+0.8 t+1.6], [d_Q_mv d_Q_mv d_Q_mv], 'o');
+figure
+tmod = mod(t(i) -time_delay, period);
+plot(t,Clv_function_Charlie(tmod, tauS, tauD, contraction_duration, Clv_max, Clv_min, period), 'o');
+
+%plot(t, Clv_function2_prime(t), 'o');

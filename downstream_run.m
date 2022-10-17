@@ -14,10 +14,13 @@ P_lv_initial = 8.5; %3.67; % mmHg
 
 tmod0 = mod(0 -time_delay, period);
 func_Clv = @(t) Clv_function_Charlie(t, tauS, tauD, contraction_duration, Clv_max, Clv_min, period);
-vol_lv_initial = func_Clv(tmod0)*P_lv_initial;
+%vol_end_diastolic = 58; %mL
+vol_lv_initial = 125; %mL%vol_end_diastolic + func_Clv(tmod0)*P_lv_initial;
 cycle = 1;                                  % initialize the variable that tracks in which cycle we are
 tf = period *ncycles;
-ic = [P_lv_initial P_ao_initial vol_lv_initial];
+ic = [P_lv_initial P_ao_initial vol_lv_initial]; 
+% PS: it is NOT a good idea to include the vol in the ODE system as above
+% It is better to postprocess and se V0 as a shifter
 nsteps = n_points-1;
 
 [tvec, d_Q_mv] = mv_inflow_vec(which_Q_mv, ncycles, n_points, period, t0);
